@@ -6,7 +6,9 @@ import time
 from PIL import Image
 import pytesseract
 from pytesseract import Output
-import openai
+from love import openai
+
+chosen_texts = []  # This list will store all the chosen texts
 
 def process_image_and_click_best_choice():
     time.sleep(1)
@@ -39,17 +41,15 @@ def process_image_and_click_best_choice():
             # Append the result to the list
             results.append({'Text': text, 'Position': (center_x, center_y)})
 
-            # Print the result
-            print(f'Text: {text}, Position: ({center_x}, {center_y})')
-
     # Use GPT-4 to decide which text to click
     texts = [result["Text"] for result in results]
     print("List of texts to make decision from: ", texts)
-    text_prompt = f"{user_prompt}\n All these texts are buttons on a webpage, output the most relevant one to the User Prompt. Do not output anything else/ \n \nOptions:\n" + "\n".join(texts)
+    previous_chosen_text = chosen_texts[-1] if chosen_texts else ""  # This will be empty if there are no chosen texts yet
+    text_prompt = f"{user_prompt}\nPrevious choice: {previous_chosen_text}\nAll these texts are buttons on a webpage, output the most relevant one to the User Prompt.If you did not find a direct correlatino, select the most related, always select something. Do not output anything else. You cannot type, so try to only click things.\nOptions:\n" + "\n".join(texts)
     response = openai.ChatCompletion.create(
         model="gpt-4-0613",
         messages=[
-            {"role": "system", "content": "You are a brilliant comedian"},
+            {"role": "system", "content": "You are a brilliant AI"},
             {"role": "user", "content": text_prompt},
         ],
     )
@@ -62,20 +62,21 @@ def process_image_and_click_best_choice():
         return
 
     print("\n Choice:", chosen_text)
+    chosen_texts.append(chosen_text)  # Append the chosen text to the list
 
     pyautogui.moveTo(chosen_text_info['Position'], duration=0.5)
-    pyautogui.click(x=chosen_text_info['Position'][0], y=chosen_text_info['Position'][1])
+    pyautogui.doubleClick()
 
 
 # Example user_prompt
-user_prompt = "Click Youtube Icon"
+user_prompt = "I want to watch a video about computer"
 
 # Define the GPT-4 interaction to obtain number of iterations
-prompt = f'''You are an AI that interacts with a screen. How many times should you interact to accomplish: user_prompt = {user_prompt}. Output only a number without saying any other thing.'''
+prompt = f'''You are an AI that interacts with a screen. We are starting from the desktop screen. How many times would you need to interact with the screen to accomplish:  user_prompt = {user_prompt}. Output only a number without saying any other thing.'''
 response = openai.ChatCompletion.create(
     model="gpt-4-0613",
     messages=[
-        {"role": "system", "content": "You are only output numbers"},
+        {"role": "system", "content": "You only output numbers"},
         {"role": "user", "content": prompt},
     ],
 )
@@ -86,6 +87,16 @@ num_interactions = int(response["choices"][0]["message"]["content"])
 print(num_interactions)
 
 # Call the function with the obtained num_interactions
+
+count = 0
 for _ in range(num_interactions):
+
+    if count == 0:
+        pyautogui.moveTo(1247, 15, duration=0.5)
+        pyautogui.click()
+
+    count = count + 1
+    time.sleep(1)
+
     process_image_and_click_best_choice()
-    time.sleep(2)  # sleep a bit to wait for screen changes
+    time.sleep(4)  # sleep a bit to wait for screen changes
